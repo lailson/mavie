@@ -1,0 +1,56 @@
+# Arquivos e pastas específicos do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Arquivos de ambiente virtual
+venv/
+ENV/
+.env
+env/
+
+# Modelos e dados
+*.onnx
+*.pth
+*.pb
+*.h5
+
+# Arquivos de configuração de IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Arquivos de log
+*.log
+logs/
+
+# Arquivos de configuração local
+config.local.py
+local_settings.py
+
+# Cache e temporários
+.cache/
+.tmp/
+tmp/
+
+# Arquivos gerados pelo Jupyter Notebook
+.ipynb_checkpoints
