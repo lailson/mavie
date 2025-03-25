@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de WebSocket de Voz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .container {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .button.stop {
+            background-color: #e74c3c;
+        }
+        .button.stop:hover {
+            background-color: #c0392b;
+        }
+        .button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #log {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #fff;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #3498db;
+        }
+        .log-error {
+            border-left-color: #e74c3c;
+            background-color: #fadbd8;
+        }
+        .log-success {
+            border-left-color: #2ecc71;
+            background-color: #d5f5e3;
+        }
+        .log-info {
+            border-left-color: #f1c40f;
+            background-color: #fef9e7;
+        }
+        .settings {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #eaecee;
+            border-radius: 4px;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .status.connected {
+            color: #27ae60;
+        }
+        .status.disconnected {
+            color: #e74c3c;
+        }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .transcript {
+            background-color: #ebf5fb;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+            margin: 10px 0;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .silence-meter {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .silence-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            transition: width 0.1s;
+        }
+
+        /* Estilos para tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 5px;
+            cursor: help;
+        }
+        
+        .tooltip .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 300px;
+            background-color: #34495e;
+            color: white;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .tooltip .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #34495e transparent transparent transparent;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Testador de WebSocket de Assistente de Voz</h1>
+        
+        <div class="settings">
+            <h3>Configurações</h3>
+            <div>
+                <label for="wsUrl">URL do WebSocket:</label>
+                <input type="text" id="wsUrl" style="width: 90%;" 
+                       value="wss://datalake-chat-dev.brazilsouth.cloudapp.azure.com/api-assistant/ws/conversation?doctor_id=205&language=pt-BR&output_format=mp3_44100">
+            </div>
+            <div style="margin-top: 10px;">
+                <label for="chunkSize">Tamanho do chunk (ms):</label>
+                <input type="number" id="chunkSize" min="50" max="500" value="100">
+            </div>
+            
+            <!-- Configurações de detecção de silêncio -->
+            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <label>Parar automático por silêncio:</label>
+                    <label class="switch">
+                        <input type="checkbox" id="autoStopEnabled" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <!-- Adicionar configuração de tempo máximo de gravação -->
+                <div style="margin-top: 10px; display: flex; align-items: center;">
+                    <label for="maxRecordingTime">Tempo máximo de gravação (segundos):</label>
+                    <div class="tooltip">
+                        <div class="tooltip-icon">?</div>
+                        <span class="tooltip-text">
+                            <strong>Tempo máximo de gravação</strong><br>
+                            Define o tempo máximo que a gravação pode durar antes de parar automaticamente, independentemente do silêncio.<br><br>
+                            • <strong>0</strong>: Desabilita o limite de tempo (usa apenas detecção de silêncio)<br>
+                            • <strong>3-10s</strong>: Bom para comandos curtos<br>
+                            • <strong>15-30s</strong>: Para frases mais longas e consultas complexas<br><br>
+                            A gravação será interrompida quando <em>qualquer</em> condição for atingida: silêncio detectado OU tempo máximo excedido.
+                        </span>
+                    </div>
+                    <input type="number" id="maxRecordingTime" min="0" max="60" step="1" value="6" style="margin-left: 10px;">
+                </div>
+                
+                <div style="margin-top: 10px; display: flex; align-items: center;">
+                    <label for="silenceThreshold">Sensibilidade (0-100):</label>
+                    <div class="tooltip">
+                        <div class="tooltip-icon">?</div>
+                        <span class="tooltip-text">
+                            <strong>O que é a sensibilidade?</strong><br>
+                            Controla quão sensível é a detecção de silêncio:<br><br>
+                            • <strong>Valores baixos (0-20)</strong>: Apenas silêncio quase absoluto é detectado. Ideal para ambientes quietos.<br>
+                            • <strong>Valores médios (20-50)</strong>: Detecta silêncio mesmo com algum ruído de fundo. Configuração recomendada para a maioria dos ambientes.<br>
+                            • <strong>Valores altos (50-100)</strong>: Mais sensível, pode interpretar sons baixos como silêncio. Use em ambientes barulhentos quando quiser que a gravação pare mesmo com algum ruído.<br><br>
+                            <em>Ajuste conforme o seu ambiente e sua voz.</em>
+                        </span>
+                    </div>
+                    <input type="range" id="silenceThreshold" min="0" max="100" value="15" style="width: 60%; margin-left: 10px;">
+                    <span id="thresholdValue">15</span>
+                </div>
+                <div style="margin-top: 10px; display: flex; align-items: center;">
+                    <label for="silenceDuration">Duração do silêncio (segundos):</label>
+                    <div class="tooltip">
+                        <div class="tooltip-icon">?</div>
+                        <span class="tooltip-text">
+                            <strong>Duração do silêncio</strong><br>
+                            Determina por quanto tempo o silêncio deve ser detectado continuamente antes que a gravação seja parada automaticamente.<br><br>
+                            • <strong>Valores baixos (0.5-1s)</strong>: Resposta rápida, mas pode parar prematuramente se você fizer pausas naturais.<br>
+                            • <strong>Valores médios (1.5-2.5s)</strong>: Bom equilíbrio, permite pausas breves na fala.<br>
+                            • <strong>Valores altos (3s+)</strong>: Permite pausas maiores durante a fala sem interromper a gravação.
+                        </span>
+                    </div>
+                    <input type="number" id="silenceDuration" min="0.5" max="10" step="0.5" value="2" style="margin-left: 10px;">
+                </div>
+                <div style="margin-top: 10px;" id="silenceDetectionContainer">
+                    <div>Status: <span id="silenceStatus">Aguardando gravação</span></div>
+                    <div class="silence-meter">
+                        <div class="silence-bar" id="silenceBar"></div>
+                    </div>
+                </div>
+                
+                <!-- Adicionar indicador de tempo de gravação -->
+                <div style="margin-top: 10px; display: none;" id="recordingTimerContainer">
+                    <div>Tempo de gravação: <span id="recordingTime">0.0s</span> / <span id="maxRecordingTimeDisplay">6.0s</span></div>
+                    <div class="silence-meter" style="background-color: #e0e0e0;">
+                        <div class="silence-bar" id="recordingTimeBar" style="background-color: #3498db;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="status disconnected" id="status">Desconectado</div>
+            <!-- Escondendo os botões de conectar/desconectar, pois suas funcionalidades serão integradas -->
+            <button id="connectBtn" class="button" style="display: none;">Conectar</button>
+            <button id="disconnectBtn" class="button" style="display: none; background-color: #f39c12;">Desconectar</button>
+            <button id="startBtn" class="button">Iniciar Gravação</button>
+            <button id="stopBtn" class="button stop" disabled>Parar Gravação</button>
+            <!-- Botão de tom de teste removido -->
+        </div>
+
+        <div class="transcript" id="transcript" style="display: none;">
+            <strong>Transcrição:</strong>
+            <div id="transcriptText"></div>
+        </div>
+
+        <div id="audioResponse" style="margin-top: 20px; display: none;">
+            <h3>Resposta de Áudio:</h3>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+        
+        <h3>Log de eventos:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Elementos da interface
+        const wsUrlInput = document.getElementById('wsUrl');
+        const chunkSizeInput = document.getElementById('chunkSize');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        // Remoção da referência ao botão de teste
+        const statusElement = document.getElementById('status');
+        const logElement = document.getElementById('log');
+        const transcriptDiv = document.getElementById('transcript');
+        const transcriptText = document.getElementById('transcriptText');
+        const audioResponse = document.getElementById('audioResponse');
+        const audioPlayer = document.getElementById('audioPlayer');
+        
+        // Elementos de detecção de silêncio
+        const autoStopEnabledCheckbox = document.getElementById('autoStopEnabled');
+        const silenceThresholdInput = document.getElementById('silenceThreshold');
+        const silenceDurationInput = document.getElementById('silenceDuration');
+        const silenceStatusElement = document.getElementById('silenceStatus');
+        const silenceBarElement = document.getElementById('silenceBar');
+        const thresholdValueDisplay = document.getElementById('thresholdValue');
+
+        // Elementos para tempo máximo de gravação
+        const maxRecordingTimeInput = document.getElementById('maxRecordingTime');
+        const recordingTimeElement = document.getElementById('recordingTime');
+        const maxRecordingTimeDisplay = document.getElementById('maxRecordingTimeDisplay');
+        const recordingTimeBar = document.getElementById('recordingTimeBar');
+        const recordingTimerContainer = document.getElementById('recordingTimerContainer');
+
+        // Variáveis globais
+        let websocket = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioContext = null;
+        let audioQueue = [];
+        let silenceDetector = null;
+        let microphoneStream = null; // Armazenar a stream do microfone
+        let microphonePermissionGranted = false; // Indicador de permissão concedida
+        
+        // Arrays para acumular chunks de áudio da resposta
+        let responseAudioChunks = [];
+        let isCollectingAudioChunks = false;
+        let audioBufferCounter = 0;
+        let audioResponseCounter = 0; // Contador para respostas de áudio recebidas
+        
+        // Variáveis para detecção de silêncio
+        let silenceDetectionEnabled = true;
+        let silenceAnalyser = null;
+        let silenceDetectionInterval = null;
+        let consecutiveSilenceTime = 0;
+        let lastSilenceCheckTime = 0;
+        let isSilent = false;
+        
+        // Variáveis para controle de tempo de gravação
+        let recordingStartTime = 0;
+        let recordingTimer = null;
+        
+        // Atualizar o valor exibido do threshold
+        silenceThresholdInput.addEventListener('input', () => {
+            thresholdValueDisplay.textContent = silenceThresholdInput.value;
+        });
+        
+        // Atualizar o valor exibido do tempo máximo quando alterado
+        maxRecordingTimeInput.addEventListener('input', () => {
+            maxRecordingTimeDisplay.textContent = `${maxRecordingTimeInput.value}.0s`;
+        });
+        
+        // Configurar ou desativar a detecção de silêncio
+        autoStopEnabledCheckbox.addEventListener('change', () => {
+            silenceDetectionEnabled = autoStopEnabledCheckbox.checked;
+            log(`Detecção automática de silêncio ${silenceDetectionEnabled ? 'ativada' : 'desativada'}`, 'info');
+        });
+
+        // Solicitar permissão do microfone no início
+        async function requestMicrophonePermission() {
+            // Verificar primeiro o status atual da permissão
+            const hasPermission = await checkMicrophonePermissionStatus();
+            if (hasPermission) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    microphoneStream = stream;
+                    microphonePermissionGranted = true;
+                    log('✅ Usando permissão de microfone já concedida', 'success');
+                    
+                    // Não vamos mais parar os tracks, apenas silenciar para economizar recursos
+                    stream.getAudioTracks().forEach(track => {
+                        track.enabled = false; // Silencia o stream sem pará-lo
+                    });
+                    
+                    // Habilitar o botão de iniciar gravação após obter a permissão
+                    startBtn.disabled = false;
+                    
+                    return true;
+                } catch (error) {
+                    log(`❌ Erro ao acessar o microfone mesmo com permissão concedida: ${error.message}`, 'error');
+                    return false;
+                }
+            }
+            
+            // Se não tiver permissão, continuar com o fluxo normal de solicitação
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                microphoneStream = stream;
+                microphonePermissionGranted = true;
+                log('✅ Permissão do microfone concedida', 'success');
+                
+                // Mostrar dica sobre como salvar a permissão permanentemente
+                log('💡 Dica: Você pode conceder permissão permanente através das configurações do navegador', 'info');
+                
+                // Não vamos mais parar os tracks, apenas silenciar para economizar recursos
+                stream.getAudioTracks().forEach(track => {
+                    track.enabled = false; // Silencia o stream sem pará-lo
+                });
+                
+                // Habilitar o botão de iniciar gravação após obter a permissão
+                startBtn.disabled = false;
+                
+                return true;
+            } catch (error) {
+                log(`❌ Erro ao acessar o microfone: ${error.message}`, 'error');
+                // Adicionar mensagem mais visível sobre a necessidade do microfone
+                const errorMsg = document.createElement('div');
+                errorMsg.style.backgroundColor = '#ffebee';
+                errorMsg.style.color = '#c62828';
+                errorMsg.style.padding = '15px';
+                errorMsg.style.margin = '15px 0';
+                errorMsg.style.borderRadius = '4px';
+                errorMsg.style.fontWeight = 'bold';
+                errorMsg.innerHTML = `
+                    <p>❌ Esta aplicação requer acesso ao microfone para funcionar.</p>
+                    <p>Por favor, conceda permissão ao navegador e recarregue a página.</p>
+                    <button id="retryPermissionBtn" class="button" style="background-color:#f44336; margin-top:10px;">Tentar Novamente</button>
+                `;
+                document.querySelector('.container').prepend(errorMsg);
+                
+                // Adicionar botão para tentar novamente
+                document.getElementById('retryPermissionBtn').addEventListener('click', async () => {
+                    errorMsg.remove();
+                    const granted = await requestMicrophonePermission();
+                    if (granted) {
+                        startBtn.disabled = false;
+                    }
+                });
+                
+                // Desabilitar botões relevantes
+                connectBtn.disabled = true;
+                startBtn.disabled = true;
+                
+                return false;
+            }
+        }
+
+        // Adicionar função para verificar e gerenciar status das permissões
+        async function checkMicrophonePermissionStatus() {
+            try {
+                // Verificar se a API de permissões é suportada pelo navegador
+                if (navigator.permissions && navigator.permissions.query) {
+                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                    
+                    // Mostrar instruções apropriadas com base no status atual
+                    if (permissionStatus.state === 'granted') {
+                        log('✅ Permissão do microfone já está concedida permanentemente', 'success');
+                        return true;
+                    } else if (permissionStatus.state === 'prompt') {
+                        // Mostrar instruções sobre como permitir permanentemente
+                        showPermanentPermissionInstructions();
+                        return false;
+                    } else if (permissionStatus.state === 'denied') {
+                        log('❌ Permissão do microfone foi negada. Por favor, reinicie as permissões nas configurações do navegador', 'error');
+                        showPermissionResetInstructions();
+                        return false;
+                    }
+                    
+                    // Adicionar listener para mudanças de status
+                    permissionStatus.onchange = function() {
+                        if (this.state === 'granted') {
+                            log('✅ Permissão do microfone concedida permanentemente', 'success');
+                        }
+                    };
+                }
+            } catch (error) {
+                console.error("Erro ao verificar status da permissão:", error);
+            }
+            
+            return false;
+        }
+        
+        // Função para mostrar instruções sobre permissões permanentes
+        function showPermanentPermissionInstructions() {
+            // Criar elemento de instruções
+            const instructionsDiv = document.createElement('div');
+            instructionsDiv.style.padding = '15px';
+            instructionsDiv.style.margin = '15px 0';
+            instructionsDiv.style.backgroundColor = '#e3f2fd';
+            instructionsDiv.style.borderLeft = '4px solid #2196F3';
+            instructionsDiv.style.borderRadius = '4px';
+            instructionsDiv.innerHTML = `
+                <h3 style="margin-top:0">📌 Como conceder permissão permanente do microfone</h3>
+                <p>Para evitar ter que permitir o uso do microfone toda vez que abrir esta página:</p>
+                <ol>
+                    <li>Quando a solicitação de microfone aparecer, clique no ícone de permissão na barra de endereços</li>
+                    <li>Selecione "Permitir sempre" ou "Lembrar minha decisão"</li>
+                    <li>Alguns navegadores podem precisar que você adicione este site aos sites confiáveis</li>
+                </ol>
+                <p><strong>Dica:</strong> Se estiver usando o Chrome, você pode gerenciar as permissões em: <code>chrome://settings/content/microphone</code></p>
+                <p><strong>Dica:</strong> Se estiver usando o Firefox, você pode gerenciar as permissões em: <code>about:preferences#privacy</code> na seção Permissões</p>
+                <button id="dismissInstructionsBtn" class="button" style="background-color:#2196F3">Entendi</button>
+            `;
+            
+            // Adicionar ao início da página
+            document.querySelector('.container').prepend(instructionsDiv);
+            
+            // Adicionar evento para fechar as instruções
+            document.getElementById('dismissInstructionsBtn').addEventListener('click', () => {
+                instructionsDiv.style.display = 'none';
+            });
+        }
+        
+        // Função para mostrar instruções de reset quando permissão foi negada
+        function showPermissionResetInstructions() {
+            const resetDiv = document.createElement('div');
+            resetDiv.style.padding = '15px';
+            resetDiv.style.margin = '15px 0';
+            resetDiv.style.backgroundColor = '#ffebee';
+            resetDiv.style.borderLeft = '4px solid #f44336';
+            resetDiv.style.borderRadius = '4px';
+            resetDiv.innerHTML = `
+                <h3 style="margin-top:0">⚠️ Permissão de microfone bloqueada</h3>
+                <p>Você bloqueou anteriormente a permissão do microfone para este site. Para usar esta aplicação:</p>
+                
+                <h4>No Chrome:</h4>
+                <ol>
+                    <li>Clique no ícone de cadeado 🔒 na barra de endereços</li>
+                    <li>Encontre "Microfone" e selecione "Permitir"</li>
+                    <li>Recarregue a página</li>
+                </ol>
+                
+                <h4>No Firefox:</h4>
+                <ol>
+                    <li>Clique no ícone de permissões (🛡️ ou ⓘ) na barra de endereços</li>
+                    <li>Clique em "Remover permissão" ou selecione "Permitir"</li>
+                    <li>Recarregue a página</li>
+                </ol>
+                
+                <h4>No Safari:</h4>
+                <ol>
+                    <li>Clique em Safari > Preferências > Websites > Microfone</li>
+                    <li>Encontre este website e altere a permissão</li>
+                    <li>Recarregue a página</li>
+                </ol>
+                
+                <h4>No Edge:</h4>
+                <ol>
+                    <li>Clique no ícone de cadeado 🔒 na barra de endereços</li>
+                    <li>Encontre "Microfone" e selecione "Permitir"</li>
+                    <li>Recarregue a página</li>
+                </ol>
+                
+                <button id="reloadPageBtn" class="button" style="background-color:#f44336">Recarregar Página</button>
+            `;
+            
+            // Adicionar ao início da página
+            document.querySelector('.container').prepend(resetDiv);
+            
+            // Adicionar evento para recarregar a página
+            document.getElementById('reloadPageBtn').addEventListener('click', () => {
+                location.reload();
+            });
+        }
+
+        // Adicionar mensagem ao log
+        function log(message, type = 'normal') {
+            // Verificar se o usuário está no fim do log antes de adicionar novo conteúdo
+            const isScrolledToBottom = logElement.scrollHeight - logElement.clientHeight <= logElement.scrollTop + 5;
+            
+            const entry = document.createElement('div');
+            entry.classList.add('log-entry');
+            if (type !== 'normal') {
+                entry.classList.add(`log-${type}`);
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<strong>${timestamp}</strong>: ${message}`;
+            
+            logElement.appendChild(entry);
+            
+            // Rolar para o fim apenas se o usuário já estava no fim do log
+            if (isScrolledToBottom) {
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+
+        // Adicionar variáveis para o buffer de áudio
+        let audioBuffer = [];
+        let isWebSocketConnected = false;
+        let isBufferingAudio = false;
+
+        // Função para conectar ao WebSocket e iniciar gravação
+        function connectAndStartRecording() {
+            const wsUrl = wsUrlInput.value.trim();
+            if (!wsUrl) {
+                log('URL do WebSocket não pode estar vazia', 'error');
+                return;
+            }
+
+            try {
+                // Desabilitar o botão de iniciar para evitar múltiplos cliques
+                startBtn.disabled = true;
+                
+                // Sempre fechar qualquer conexão anterior para garantir uma nova conexão
+                if (websocket) {
+                    log('Fechando conexão WebSocket existente antes de criar nova...', 'info');
+                    try { 
+                        if (websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING) {
+                            websocket.close(1000, "Nova gravação iniciada"); 
+                        }
+                    } catch (e) { 
+                        log(`Erro ao fechar conexão existente: ${e.message}`, 'error');
+                    }
+                    websocket = null;
+                }
+                
+                // Limpar o buffer de áudio
+                audioBuffer = [];
+                isWebSocketConnected = false;
+                
+                // Iniciar gravação imediatamente (irá armazenar em buffer)
+                isBufferingAudio = true;
+                log('Iniciando captura de áudio enquanto estabelece conexão...', 'info');
+                startRecording();
+                
+                // Criar nova conexão WebSocket (com um pequeno delay para garantir que a conexão anterior foi fechada)
+                setTimeout(() => {
+                    log('Estabelecendo nova conexão WebSocket...', 'info');
+                    
+                    websocket = new WebSocket(wsUrl);
+                    
+                    websocket.onopen = (event) => {
+                        statusElement.textContent = 'Conectado';
+                        statusElement.classList.remove('disconnected');
+                        statusElement.classList.add('connected');
+                        log('✅ Conexão WebSocket estabelecida com sucesso', 'success');
+                        
+                        // Marcar que a conexão está pronta
+                        isWebSocketConnected = true;
+                        
+                        // Enviar todos os chunks armazenados no buffer
+                        if (audioBuffer.length > 0) {
+                            log(`Enviando ${audioBuffer.length} chunks armazenados em buffer...`, 'info');
+                            audioBuffer.forEach((chunk, index) => {
+                                websocket.send(chunk);
+                                if (index === 0) {
+                                    log(`✅ PRIMEIRO CHUNK enviado do buffer (${(chunk.size/1024).toFixed(2)} KB) - Contém header!`, 'success');
+                                }
+                            });
+                            log(`Buffer de áudio enviado com sucesso.`, 'success');
+                            audioBuffer = []; // Limpar o buffer
+                        }
+                        
+                        isBufferingAudio = false;
+                    };
+
+                    websocket.onmessage = (event) => {
+                        console.log("Mensagem recebida:", event.data);
+                        log(`Mensagem recebida do servidor (tipo: ${typeof event.data})`, 'info');
+                        
+                        if (event.data instanceof Blob) {
+                            log(`✅ Recebido chunk de áudio: ${event.data.size} bytes`, 'success');
+                            
+                            // Iniciar coleta de chunks se ainda não estiver coletando
+                            if (!isCollectingAudioChunks) {
+                                isCollectingAudioChunks = true;
+                                responseAudioChunks = []; // Limpar array anterior
+                                log("Iniciando coleta de chunks de áudio para resposta completa...", "info");
+                            }
+                            
+                            // Adicionar o chunk ao array de resposta
+                            responseAudioChunks.push(event.data);
+                            log(`Chunk de áudio #${responseAudioChunks.length} armazenado (${event.data.size} bytes)`, 'info');
+                        } else {
+                            // Resposta de texto/JSON
+                            try {
+                                const jsonData = JSON.parse(event.data);
+                                log(`Dados JSON recebidos: ${JSON.stringify(jsonData).substring(0, 100)}...`, 'info');
+                                
+                                // Se recebeu a resposta final JSON com conversation_id, finalizar a coleta de áudio
+                                if (jsonData.conversation_id) {
+                                    if (isCollectingAudioChunks) {
+                                        log(`✅ Recebida resposta final. Reproduzindo ${responseAudioChunks.length} chunks de áudio acumulados...`, 'success');
+                                        // Processar e reproduzir todos os chunks acumulados
+                                        processAndPlayCombinedAudio();
+                                        isCollectingAudioChunks = false;
+                                    }
+                                }
+                                
+                                handleJsonResponse(jsonData);
+                                
+                                // Quando reconhece a fala completa, apenas logamos, sem enviar pings
+                                if (jsonData.recognized) {
+                                    log("Fala reconhecida! Aguardando resposta de áudio...", 'info');
+                                }
+                            } catch (e) {
+                                log(`Mensagem texto recebida: ${event.data}`, 'info');
+                            }
+                        }
+                    };
+
+                    websocket.onclose = (event) => {
+                        statusElement.textContent = 'Desconectado';
+                        statusElement.classList.remove('connected');
+                        statusElement.classList.add('disconnected');
+                        stopBtn.disabled = true;
+                        startBtn.disabled = false;
+                        
+                        log(`Conexão fechada: ${event.code} ${event.reason}`, 'info');
+                        websocket = null;
+                    };
+
+                    websocket.onerror = (error) => {
+                        log(`❌ Erro na conexão WebSocket: ${error}`, 'error');
+                        startBtn.disabled = false;
+                        isWebSocketConnected = false;
+                    };
+                }, 300); // pequeno delay para garantir que a conexão anterior foi fechada
+
+            } catch (error) {
+                log(`Erro ao iniciar processo: ${error.message}`, 'error');
+                startBtn.disabled = false;
+                isBufferingAudio = false;
+            }
+        }
+        
+        // Função para iniciar a gravação
+        async function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                // Verificar permissão do microfone
+                if (!microphonePermissionGranted) {
+                    const permissionGranted = await requestMicrophonePermission();
+                    if (!permissionGranted) {
+                        log('Não foi possível iniciar a gravação sem permissão do microfone', 'error');
+                        return;
+                    }
+                }
+                
+                // Mesmo que o botão de iniciar esteja desabilitado para evitar cliques múltiplos,
+                // vamos garantir que o botão de parar esteja disponível
+                stopBtn.disabled = false;
+                
+                // Reutilizar a stream existente se disponível, ou obter uma nova se necessário
+                let stream;
+                if (microphoneStream && microphoneStream.active) {
+                    stream = microphoneStream;
+                    // Reativar as tracks de áudio que foram silenciadas
+                    stream.getAudioTracks().forEach(track => {
+                        track.enabled = true;
+                    });
+                    log('Reutilizando permissão de microfone já concedida', 'success');
+                } else {
+                    // Se a stream não estiver mais ativa, obter uma nova
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    microphoneStream = stream;
+                    log('Nova stream de microfone obtida', 'info');
+                }
+                
+                // Configurar o MediaRecorder
+                const chunkSize = parseInt(chunkSizeInput.value) || 100;
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm',
+                });
+                
+                // Contador para monitorar os chunks
+                let chunkCounter = 0;
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        chunkCounter++;
+                        
+                        // Se estamos em modo buffer ou o WebSocket não está conectado,
+                        // armazenar o chunk no buffer
+                        if (isBufferingAudio || !isWebSocketConnected) {
+                            audioBuffer.push(event.data);
+                            
+                            // Log especial para o primeiro chunk (contém header)
+                            if (chunkCounter === 1) {
+                                log(`🔍 Primeiro chunk capturado (${(event.data.size/1024).toFixed(2)} KB) - Armazenado em buffer`, 'info');
+                            } else if (chunkCounter % 5 === 0) {
+                                log(`Armazenando chunk #${chunkCounter} em buffer (${audioBuffer.length} chunks no total)`, 'info');
+                            }
+                        } 
+                        // Se o WebSocket está conectado e não estamos em modo buffer, enviar diretamente
+                        else if (websocket && websocket.readyState === WebSocket.OPEN) {
+                            websocket.send(event.data);
+                            
+                            if (chunkCounter % 5 === 0) {
+                                log(`Chunk #${chunkCounter} enviado diretamente (${(event.data.size/1024).toFixed(2)} KB)`, 'info');
+                            }
+                        }
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    log('Gravação finalizada', 'info');
+                    isRecording = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    isBufferingAudio = false;
+                };
+                
+                // Iniciar gravação com timeslice para chunks
+                mediaRecorder.start(chunkSize);
+                
+                // Iniciar o status de gravação
+                isRecording = true;
+                log('Gravação iniciada', 'success');
+                
+                // Iniciar detecção de silêncio se estiver habilitada
+                if (silenceDetectionEnabled) {
+                    startSilenceDetection(stream);
+                }
+                
+                // Iniciar o timer de gravação
+                startRecordingTimer();
+                
+            } catch (error) {
+                log(`Erro ao acessar o microfone: ${error.message}`, 'error');
+                microphonePermissionGranted = false;
+                microphoneStream = null;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                isBufferingAudio = false;
+            }
+        }
+        
+        // Função para parar gravação e desconectar
+        function stopRecordingAndDisconnect() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                
+                // Não parar completamente os tracks, apenas silenciar
+                if (microphoneStream) {
+                    microphoneStream.getAudioTracks().forEach(track => {
+                        track.enabled = false; // Silencia sem parar
+                    });
+                }
+                
+                // Parar detecção de silêncio
+                stopSilenceDetection();
+                
+                // Parar timer de gravação
+                stopRecordingTimer();
+                
+                isRecording = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                isBufferingAudio = false;
+                
+                log('Gravação interrompida', 'info');
+                
+                // Limpar buffer de áudio, não é mais necessário
+                if (audioBuffer.length > 0) {
+                    log(`Descartando ${audioBuffer.length} chunks em buffer`, 'info');
+                    audioBuffer = [];
+                }
+                
+                // Desconectar o WebSocket
+                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    log('Desconectando do WebSocket...', 'info');
+                    
+                    try {
+                        websocket.close(1000, "Desconexão solicitada pelo usuário");
+                        isWebSocketConnected = false;
+                    } catch (error) {
+                        log(`Erro ao desconectar: ${error.message}`, 'error');
+                    }
+                }
+            }
+        }
+
+        // Função para parar gravação (compartilhada pelo botão e pela detecção automática)
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                
+                // Não parar completamente os tracks, apenas silenciar
+                if (microphoneStream) {
+                    microphoneStream.getAudioTracks().forEach(track => {
+                        track.enabled = false; // Silencia sem parar
+                    });
+                }
+                
+                // Parar detecção de silêncio
+                stopSilenceDetection();
+                
+                // Parar timer de gravação
+                stopRecordingTimer();
+                
+                log('Gravação interrompida, mas conexão mantida para receber respostas', 'info');
+                log('Aguardando resposta do servidor...', 'info');
+            }
+        }
+
+        // Modificar os listeners de evento para os botões
+        startBtn.addEventListener('click', () => {
+            // Agora o botão de iniciar sempre tenta conectar primeiro
+            connectAndStartRecording();
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            // Agora o botão de parar também desconecta
+            stopRecordingAndDisconnect();
+        });
+
+        // Processar resposta JSON
+        function handleJsonResponse(data) {
+            if (data.recognizing) {
+                transcriptDiv.style.display = 'block';
+                transcriptText.textContent = data.recognizing;
+                log(`Reconhecendo: "${data.recognizing}"`, 'info');
+            } 
+            else if (data.recognized) {
+                transcriptDiv.style.display = 'block';
+                transcriptText.textContent = data.recognized;
+                log(`Reconhecido: "${data.recognized}"`, 'success');
+                
+                // Quando uma transcrição completa é reconhecida, informar ao usuário para aguardar a resposta em áudio
+                log('Transcrição completa! Aguardando resposta de áudio...', 'info');
+            }
+            else if (data.conversation_id) {
+                log(`Resposta final recebida: "${data.assistant_message.content}"`, 'success');
+                
+                // Exibir resposta textual de forma mais proeminente
+                const responseDisplay = document.createElement('div');
+                responseDisplay.style.padding = '15px';
+                responseDisplay.style.margin = '10px 0';
+                responseDisplay.style.backgroundColor = '#d5f5e3';
+                responseDisplay.style.borderLeft = '4px solid #2ecc71';
+                responseDisplay.style.borderRadius = '4px';
+                responseDisplay.innerHTML = `<strong>Resposta do assistente:</strong><br>${data.assistant_message.content}`;
+                
+                // Inserir antes do log
+                document.querySelector('.container').insertBefore(responseDisplay, document.querySelector('h3').nextSibling);
+            }
+            else {
+                log(`Resposta JSON: ${JSON.stringify(data)}`, 'info');
+            }
+            
+            // Remoção do código que adiciona o botão "Enviar silêncio para estimular resposta"
+        }
+
+        // Remover a função sendNullSound() que não será mais utilizada
+
+        // Função para processar e reproduzir os chunks de áudio combinados
+        function processAndPlayCombinedAudio() {
+            if (!responseAudioChunks.length) {
+                log("Nenhum chunk de áudio para processar", "error");
+                return;
+            }
+            
+            log(`Combinando ${responseAudioChunks.length} chunks de áudio em um único arquivo...`, "info");
+            
+            // Incrementar o contador de respostas de áudio
+            audioResponseCounter++;
+            
+            // Combinar todos os chunks em um único Blob
+            const combinedBlob = new Blob(responseAudioChunks, { type: 'audio/mp3' });
+            log(`Áudio combinado criado: ${(combinedBlob.size/1024).toFixed(2)} KB total`, "success");
+            
+            // Criar URL para o blob combinado
+            const audioUrl = URL.createObjectURL(combinedBlob);
+            
+            // Atualizar o player de áudio
+            audioResponse.style.display = 'block';
+            
+            // Primeiro remover elementos antigos
+            const existingButtons = audioResponse.querySelectorAll('button, a');
+            existingButtons.forEach(el => el.remove());
+            
+            // Criar um novo elemento de áudio
+            const oldAudio = document.getElementById('audioPlayer');
+            const newAudio = document.createElement('audio');
+            newAudio.id = 'audioPlayer';
+            newAudio.controls = true;
+            oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+            
+            // Remover div de controles anterior antes de adicionar uma nova
+            const oldControlsDiv = document.querySelector('.audio-controls-container');
+            if (oldControlsDiv) {
+                oldControlsDiv.remove();
+            }
+            
+            // Adicionar botão de download
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'audio-controls-container'; 
+            controlsDiv.style.margin = '15px 0';
+            controlsDiv.style.padding = '10px';
+            controlsDiv.style.backgroundColor = '#f1f8e9';
+            controlsDiv.style.borderRadius = '8px';
+            controlsDiv.style.textAlign = 'center';
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = audioUrl;
+            downloadLink.download = `resposta_completa_${new Date().toISOString().replace(/[:.]/g, '_')}.mp3`;
+            downloadLink.className = 'button';
+            downloadLink.style.display = 'inline-block';
+            downloadLink.innerHTML = '💾 Baixar MP3';
+            
+            // Adicionar os elementos à página
+            controlsDiv.appendChild(downloadLink);
+            audioResponse.insertBefore(controlsDiv, document.getElementById('audioPlayer'));
+            
+            // Reproduzir o áudio automaticamente
+            const playerElement = document.getElementById('audioPlayer');
+            playerElement.src = audioUrl;
+            log('🔊 Iniciando reprodução automática do áudio...', 'success');
+            
+            // Tentar diferentes abordagens para garantir a reprodução
+            setTimeout(() => {
+                playerElement.load();
+                const playPromise = playerElement.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => log('▶️ Reprodução iniciada com sucesso!', 'success'))
+                        .catch(e => {
+                            log(`❌ Erro na reprodução automática: ${e.message}. Políticas do navegador podem estar bloqueando.`, 'error');
+                            
+                            // Criar um botão de reprodução manual caso falhe
+                            const playButton = document.createElement('button');
+                            playButton.className = 'button';
+                            playButton.style.backgroundColor = '#4CAF50';
+                            playButton.style.marginRight = '10px';
+                            playButton.innerHTML = '▶️ Clique para reproduzir';
+                            playButton.onclick = () => playerElement.play();
+                            
+                            controlsDiv.insertBefore(playButton, downloadLink);
+                        });
+                }
+            }, 100);
+            
+            // Remover notificações antigas de áudio recebido
+            const existingNotifications = document.querySelectorAll('.audio-response-notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            // Mostrar notificação com contador
+            const notification = document.createElement('div');
+            notification.className = 'audio-response-notification';
+            notification.style.padding = '15px';
+            notification.style.backgroundColor = '#e3f2fd';
+            notification.style.border = '2px solid #2196F3';
+            notification.style.borderRadius = '8px';
+            notification.style.margin = '20px 0';
+            notification.style.textAlign = 'center';
+            notification.innerHTML = `
+                <h3 style="color:#0d47a1; margin:0;">🔔 Resposta de Áudio #${audioResponseCounter} Recebida!</h3>
+                <p style="margin:10px 0;">Reprodução automática iniciada</p>
+            `;
+            
+            // Verificar se há algum elemento com classe 'transcript'
+            const transcriptElement = document.querySelector('.transcript');
+            if (transcriptElement) {
+                document.querySelector('.container').insertBefore(
+                    notification, 
+                    transcriptElement.nextSibling
+                );
+            } else {
+                // Se não houver, inserir antes do log
+                document.querySelector('.container').insertBefore(
+                    notification, 
+                    document.querySelector('h3')
+                );
+            }
+            
+            log(`✅ Áudio #${audioResponseCounter} carregado e reprodução automática iniciada`, 'success');
+        }
+
+        // Função para iniciar a detecção de silêncio
+        function startSilenceDetection(stream) {
+            if (!silenceDetectionEnabled) return;
+            
+            // Criar contexto de áudio se não existir
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Criar analisador para detecção de silêncio
+            const source = audioContext.createMediaStreamSource(stream);
+            silenceAnalyser = audioContext.createAnalyser();
+            silenceAnalyser.fftSize = 256;
+            source.connect(silenceAnalyser);
+            const bufferLength = silenceAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            // Iniciar o intervalo de detecção de silêncio
+            consecutiveSilenceTime = 0;
+            lastSilenceCheckTime = Date.now();
+            
+            silenceDetectionInterval = setInterval(() => {
+                if (!isRecording || !silenceDetectionEnabled) return;
+                
+                // Obter dados de áudio para análise
+                silenceAnalyser.getByteFrequencyData(dataArray);
+                
+                // Calcular o volume médio (0-255)
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+                
+                // Normalizar para uma escala de 0-100
+                const normalizedValue = Math.min(100, Math.max(0, average / 2.55));
+                
+                // Atualizar a barra visual
+                silenceBarElement.style.width = `${normalizedValue}%`;
+                silenceBarElement.style.backgroundColor = normalizedValue > silenceThresholdInput.value 
+                    ? '#FF9800' // Laranja quando há som
+                    : '#4CAF50'; // Verde quando é silêncio
+                
+                // Verificar se está em silêncio (abaixo do limiar configurado)
+                const currentTime = Date.now();
+                const elapsedMs = currentTime - lastSilenceCheckTime;
+                lastSilenceCheckTime = currentTime;
+                
+                const thresholdValue = parseFloat(silenceThresholdInput.value);
+                const currentlyIsSilent = normalizedValue <= thresholdValue;
+                
+                // Atualizar status
+                silenceStatusElement.textContent = currentlyIsSilent 
+                    ? `Silêncio detectado (${(consecutiveSilenceTime / 1000).toFixed(1)}s)` 
+                    : 'Voz detectada';
+                silenceStatusElement.style.color = currentlyIsSilent ? '#4CAF50' : '#FF9800';
+                
+                if (currentlyIsSilent) {
+                    // Incrementar contador de silêncio consecutivo
+                    consecutiveSilenceTime += elapsedMs;
+                    
+                    // Verificar se atingiu o tempo de silêncio configurado
+                    const silenceDurationMs = parseFloat(silenceDurationInput.value) * 1000;
+                    if (consecutiveSilenceTime >= silenceDurationMs) {
+                        log(`Silêncio detectado por ${silenceDurationInput.value} segundos. Parando gravação automaticamente.`, 'info');
+                        stopRecording();
+                    }
+                } else {
+                    // Resetar contador se detectou som
+                    consecutiveSilenceTime = 0;
+                }
+            }, 100); // Verificar a cada 100ms
+            
+            log('Detecção de silêncio iniciada', 'info');
+        }
+
+        // Função para parar a detecção de silêncio
+        function stopSilenceDetection() {
+            if (silenceDetectionInterval) {
+                clearInterval(silenceDetectionInterval);
+                silenceDetectionInterval = null;
+            }
+            silenceStatusElement.textContent = 'Aguardando gravação';
+            silenceStatusElement.style.color = '';
+        }
+
+        // Função para iniciar o timer de gravação
+        function startRecordingTimer() {
+            recordingStartTime = Date.now();
+            recordingTimerContainer.style.display = 'block';
+            // Atualizar display inicial
+            recordingTimeElement.textContent = '0.0s';
+            maxRecordingTimeDisplay.textContent = `${maxRecordingTimeInput.value}.0s`;
+            recordingTimeBar.style.width = '0%';
+            
+            // Configurar timer para atualização contínua
+            recordingTimer = setInterval(() => {
+                if (!isRecording) {
+                    clearInterval(recordingTimer);
+                    return;
+                }
+                
+                const elapsedSeconds = (Date.now() - recordingStartTime) / 1000;
+                recordingTimeElement.textContent = `${elapsedSeconds.toFixed(1)}s`;
+                
+                const maxTime = parseFloat(maxRecordingTimeInput.value);
+                // Só considerar o tempo máximo se for maior que zero
+                if (maxTime > 0) {
+                    // Calcular porcentagem do tempo decorrido
+                    const percentage = Math.min(100, (elapsedSeconds / maxTime) * 100);
+                    recordingTimeBar.style.width = `${percentage}%`;
+                    
+                    // Mudar cor quando estiver próximo do limite
+                    if (percentage > 80) {
+                        recordingTimeBar.style.backgroundColor = '#e74c3c'; // Vermelho quando próximo do limite
+                    } else if (percentage > 50) {
+                        recordingTimeBar.style.backgroundColor = '#f39c12'; // Laranja no meio
+                    } else {
+                        recordingTimeBar.style.backgroundColor = '#3498db'; // Azul normal
+                    }
+                    
+                    // Parar gravação se atingiu o tempo máximo
+                    if (elapsedSeconds >= maxTime) {
+                        log(`Tempo máximo de gravação de ${maxTime} segundos atingido. Parando gravação.`, 'info');
+                        stopRecording();
+                    }
+                } else {
+                    // Se não há tempo máximo, apenas mostrar o tempo decorrido
+                    recordingTimeBar.style.width = '0%';
+                }
+            }, 100);
+        }
+
+        // Função para parar o timer de gravação
+        function stopRecordingTimer() {
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+            recordingTimerContainer.style.display = 'none';
+        }
+
+        // Variáveis para a wake word
+        let wakeWordWebsocket = null;
+        let wakeWordEnabled = false;
+        
+        // Adicionar elementos para controle da wake word na interface
+        function setupWakeWordInterface() {
+            const settingsDiv = document.querySelector('.settings');
+            
+            // Criar a seção de configurações da wake word
+            const wakeWordSection = document.createElement('div');
+            wakeWordSection.style.marginTop = '15px';
+            wakeWordSection.style.paddingTop = '10px';
+            wakeWordSection.style.borderTop = '1px solid #ddd';
+            
+            // Criar toggle para ativar/desativar a wake word
+            const wakeWordToggleDiv = document.createElement('div');
+            wakeWordToggleDiv.style.display = 'flex';
+            wakeWordToggleDiv.style.alignItems = 'center';
+            wakeWordToggleDiv.style.justifyContent = 'space-between';
+            
+            const wakeWordLabel = document.createElement('label');
+            wakeWordLabel.textContent = 'Ativar detecção por wake word ("ma veee"):';
+            
+            const wakeWordSwitch = document.createElement('label');
+            wakeWordSwitch.className = 'switch';
+            wakeWordSwitch.innerHTML = `
+                <input type="checkbox" id="wakeWordEnabled" checked>
+                <span class="slider"></span>
+            `;
+            
+            wakeWordToggleDiv.appendChild(wakeWordLabel);
+            wakeWordToggleDiv.appendChild(wakeWordSwitch);
+            
+            // Adicionar status da conexão com o servidor de wake word
+            const wakeWordStatusDiv = document.createElement('div');
+            wakeWordStatusDiv.style.marginTop = '10px';
+            wakeWordStatusDiv.innerHTML = `
+                <div>Status da wake word: <span id="wakeWordStatus" style="color: #e74c3c; font-weight: bold;">Desconectado</span></div>
+                <div style="margin-top: 5px; font-size: 12px; color: #7f8c8d;">Servidor em: ws://localhost:5678</div>
+                
+            `;
+            
+            // Adicionar os elementos à seção
+            wakeWordSection.appendChild(wakeWordToggleDiv);
+            wakeWordSection.appendChild(wakeWordStatusDiv);
+            
+            // Adicionar a seção ao documento
+            settingsDiv.appendChild(wakeWordSection);
+            
+            // Adicionar event listener para o toggle
+            document.getElementById('wakeWordEnabled').addEventListener('change', function(e) {
+                wakeWordEnabled = e.target.checked;
+                if (wakeWordEnabled) {
+                    connectToWakeWordServer();
+                } else {
+                    disconnectFromWakeWordServer();
+                }
+            });
+        }
+        
+        // Adicionar variável para o som de confirmação da wake word
+        let wakeWordSound = new Audio('positive.wav');
+        wakeWordSound.volume = 0.7; // Volume a 70%
+        
+        // Conectar ao servidor de wake word
+        function connectToWakeWordServer() {
+            if (wakeWordWebsocket && (wakeWordWebsocket.readyState === WebSocket.OPEN || 
+                                     wakeWordWebsocket.readyState === WebSocket.CONNECTING)) {
+                return; // Já está conectado ou tentando conectar
+            }
+            
+            try {
+                log('Conectando ao servidor de wake word...', 'info');
+                document.getElementById('wakeWordStatus').textContent = 'Conectando...';
+                document.getElementById('wakeWordStatus').style.color = '#f39c12';
+                
+                wakeWordWebsocket = new WebSocket('ws://localhost:5678');
+                
+                wakeWordWebsocket.onopen = () => {
+                    log('✅ Conectado ao servidor de wake word', 'success');
+                    document.getElementById('wakeWordStatus').textContent = 'Conectado';
+                    document.getElementById('wakeWordStatus').style.color = '#27ae60';
+                };
+                
+                wakeWordWebsocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.event === 'wakeword_detected') {
+                            log(`🎯 Wake word detectada! (Score: ${data.score.toFixed(3)})`, 'success');
+                            
+                            // Tocar som de confirmação
+                            try {
+                                wakeWordSound.currentTime = 0; // Reinicia o áudio
+                                wakeWordSound.play()
+                                    .catch(error => log(`Nota: Não foi possível tocar o som de confirmação: ${error.message}`, 'info'));
+                            } catch (e) {
+                                log(`Nota: Erro ao tocar som de confirmação: ${e.message}`, 'info');
+                            }
+                            
+                            // Verificar se já está gravando ou se estamos conectados ao servidor principal
+                            if (!isRecording && (!websocket || websocket.readyState !== WebSocket.OPEN)) {
+                                log('Iniciando gravação automática após detecção da wake word', 'info');
+                                // Simular clique no botão de iniciar gravação
+                                connectAndStartRecording();
+                            } else {
+                                log('Ignorando wake word - já está gravando ou processando', 'info');
+                            }
+                        }
+                    } catch (e) {
+                        log(`Erro ao processar mensagem da wake word: ${e.message}`, 'error');
+                    }
+                };
+                
+                wakeWordWebsocket.onclose = () => {
+                    log('Conexão com servidor de wake word fechada', 'info');
+                    document.getElementById('wakeWordStatus').textContent = 'Desconectado';
+                    document.getElementById('wakeWordStatus').style.color = '#e74c3c';
+                    
+                    // Tentar reconectar se estiver habilitado
+                    if (wakeWordEnabled) {
+                        setTimeout(() => {
+                            if (wakeWordEnabled) {
+                                log('Tentando reconectar ao servidor de wake word...', 'info');
+                                connectToWakeWordServer();
+                            }
+                        }, 5000); // Aumentado para 5 segundos
+                    }
+                };
+                
+                wakeWordWebsocket.onerror = (error) => {
+                    log(`Erro na conexão com servidor de wake word. Certifique-se que o servidor está rodando (python wakeword_server.py)`, 'error');
+                    document.getElementById('wakeWordStatus').textContent = 'Erro';
+                    document.getElementById('wakeWordStatus').style.color = '#e74c3c';
+                };
+                
+            } catch (error) {
+                log(`Erro ao conectar ao servidor de wake word: ${error.message}`, 'error');
+                document.getElementById('wakeWordStatus').textContent = 'Erro';
+                document.getElementById('wakeWordStatus').style.color = '#e74c3c';
+            }
+        }
+        
+        // Desconectar do servidor de wake word
+        function disconnectFromWakeWordServer() {
+            if (wakeWordWebsocket) {
+                wakeWordWebsocket.close();
+                wakeWordWebsocket = null;
+                log('Desconectado do servidor de wake word', 'info');
+            }
+        }
+
+        // Atualizar o window.addEventListener para incluir a configuração da wake word
+        window.addEventListener('load', async () => {
+            log('Página carregada. Verificando permissão do microfone...', 'info');
+            
+            // Pré-carregar o som de confirmação
+            wakeWordSound.addEventListener('canplaythrough', () => {
+                log('Som de confirmação da wake word carregado', 'info');
+            });
+            
+            wakeWordSound.addEventListener('error', (e) => {
+                log(`Erro ao carregar o som de confirmação: ${e.message || 'Arquivo não encontrado'}. Verifique se o arquivo "positive.wav" existe no mesmo diretório.`, 'error');
+            });
+            
+            // Adicionar interface para wake word
+            setupWakeWordInterface();
+            
+            // Desabilitar o botão de iniciar gravação até que a permissão seja concedida
+            startBtn.disabled = true;
+            
+            // Solicitar permissão do microfone ao carregar
+            await requestMicrophonePermission();
+            
+            log('Clique em "Iniciar Gravação" para começar, ou aguarde a detecção da wake word.', 'info');
+            
+            // Ativar wake word por padrão
+            wakeWordEnabled = true;
+            connectToWakeWordServer();
+        });
+    </script>
+</body>
+</html>
