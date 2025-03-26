@@ -105,7 +105,7 @@ class WakeWordDetector:
                             })
                 
                 # Pequena pausa para evitar alta utilização da CPU
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.01)
                 
             except asyncio.CancelledError:
                 logger.info("Detecção cancelada")
