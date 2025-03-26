@@ -6,7 +6,7 @@ openwakeword
 #flask 
 #webrtcvad
 #pydub 
-#requests
+requests
 #streamlit==1.24.0
 websockets==11.0.3
 #audio-recorder-streamlit==0.0.8

@@ -527,18 +527,7 @@
             instructionsDiv.style.backgroundColor = '#e3f2fd';
             instructionsDiv.style.borderLeft = '4px solid #2196F3';
             instructionsDiv.style.borderRadius = '4px';
-            instructionsDiv.innerHTML = `
-                <h3 style="margin-top:0">📌 Como conceder permissão permanente do microfone</h3>
-                <p>Para evitar ter que permitir o uso do microfone toda vez que abrir esta página:</p>
-                <ol>
-                    <li>Quando a solicitação de microfone aparecer, clique no ícone de permissão na barra de endereços</li>
-                    <li>Selecione "Permitir sempre" ou "Lembrar minha decisão"</li>
-                    <li>Alguns navegadores podem precisar que você adicione este site aos sites confiáveis</li>
-                </ol>
-                <p><strong>Dica:</strong> Se estiver usando o Chrome, você pode gerenciar as permissões em: <code>chrome://settings/content/microphone</code></p>
-                <p><strong>Dica:</strong> Se estiver usando o Firefox, você pode gerenciar as permissões em: <code>about:preferences#privacy</code> na seção Permissões</p>
-                <button id="dismissInstructionsBtn" class="button" style="background-color:#2196F3">Entendi</button>
-            `;
+            
             
             // Adicionar ao início da página
             document.querySelector('.container').prepend(instructionsDiv);

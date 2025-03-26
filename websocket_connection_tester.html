@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Avançado de WebSocket</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .button.red {
+            background-color: #e74c3c;
+        }
+        .button.red:hover {
+            background-color: #c0392b;
+        }
+        .button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .connected {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .disconnected {
+            background-color: #fadbd8;
+            color: #e74c3c;
+        }
+        .connecting {
+            background-color: #fef9e7;
+            color: #f39c12;
+        }
+        #log {
+            height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            margin-top: 20px;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #3498db;
+        }
+        .log-error {
+            border-left-color: #e74c3c;
+            background-color: #fadbd8;
+        }
+        .log-success {
+            border-left-color: #2ecc71;
+            background-color: #d5f5e3;
+        }
+        .log-info {
+            border-left-color: #f1c40f;
+            background-color: #fef9e7;
+        }
+        .tools {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaecee;
+            border-radius: 4px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            background-color: #ecf0f1;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 0 4px 4px 4px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .ping-interval {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .ping-interval input {
+            width: 60px;
+            margin: 0 10px;
+        }
+        .responsive-info {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .audio-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .headers {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .headers input {
+            padding: 8px;
+        }
+        .add-header {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .copy-button {
+            background-color: #9b59b6;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .indicator.red {
+            background-color: #e74c3c;
+        }
+        .indicator.green {
+            background-color: #2ecc71;
+        }
+        .indicator.yellow {
+            background-color: #f39c12;
+        }
+        .metrics {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Teste Avançado de WebSocket</h1>
+        
+        <div class="form-group">
+            <label for="wsUrl">URL do WebSocket:</label>
+            <div style="display: flex;">
+                <input type="text" id="wsUrl" value="wss://datalake-chat-dev.brazilsouth.cloudapp.azure.com/api-assistant/ws/conversation?doctor_id=205&language=pt-BR&output_format=mp3_44100">
+                <button id="copyUrlBtn" class="copy-button">Copiar</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Status da Conexão:</label>
+            <div id="status" class="status disconnected">
+                <span class="indicator red"></span> Desconectado
+            </div>
+        </div>
+        
+        <div class="metrics">
+            <div class="metric">
+                <div>Latência</div>
+                <div id="latency" class="metric-value">--</div>
+            </div>
+            <div class="metric">
+                <div>Tempo de Conexão</div>
+                <div id="connectionTime" class="metric-value">--</div>
+            </div>
+            <div class="metric">
+                <div>Bytes Recebidos</div>
+                <div id="bytesReceived" class="metric-value">0</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button id="connectBtn" class="button">Conectar</button>
+            <button id="disconnectBtn" class="button red" disabled>Desconectar</button>
+            <button id="clearLogBtn" class="button" style="background-color: #7f8c8d;">Limpar Log</button>
+        </div>
+        
+        <div class="tools">
+            <div class="tabs">
+                <div class="tab active" data-tab="sendMessage">Enviar Mensagem</div>
+                <div class="tab" data-tab="sendAudio">Enviar Áudio</div>
+                <div class="tab" data-tab="pingPong">Ping/Pong</div>
+                <div class="tab" data-tab="headers">Cabeçalhos</div>
+            </div>
+            
+            <div class="tab-content active" id="sendMessage">
+                <label for="message">Mensagem para enviar:</label>
+                <textarea id="message" rows="3" placeholder="Insira uma mensagem para enviar (JSON ou texto)"></textarea>
+                <button id="sendBtn" class="button" disabled>Enviar Mensagem</button>
+            </div>
+            
+            <div class="tab-content" id="sendAudio">
+                <p>Enviar arquivo de áudio para o WebSocket:</p>
+                <input type="file" id="audioFile" accept="audio/*">
+                <button id="sendAudioBtn" class="button" disabled>Enviar Áudio</button>
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" id="sendAsBlob" checked>
+                        Enviar como Blob (recomendado para WebSockets binários)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="pingPong">
+                <p>Enviar pings periódicos para manter a conexão ativa:</p>
+                <div>
+                    <label>
+                        <input type="checkbox" id="autoPing">
+                        Ativar ping automático
+                    </label>
+                </div>
+                <div class="ping-interval">
+                    <span>Intervalo:</span>
+                    <input type="number" id="pingInterval" value="30" min="1" max="300">
+                    <span>segundos</span>
+                </div>
+                <button id="pingBtn" class="button" disabled>Enviar Ping Único</button>
+            </div>
+            
+            <div class="tab-content" id="headers">
+                <p>Adicionar cabeçalhos personalizados (para próxima conexão):</p>
+                <div id="headersList" class="headers">
+                    <!-- Headers serão adicionados aqui -->
+                </div>
+                <button id="addHeaderBtn" class="add-header">+ Adicionar Cabeçalho</button>
+            </div>
+        </div>
+        
+        <div class="responsive-info" id="responseInfo">
+            <h3>Informações da Resposta</h3>
+            <div id="responseData"></div>
+        </div>
+        
+        <div class="audio-container" id="audioContainer">
+            <h3>Áudio Recebido</h3>
+            <audio id="audioPlayer" controls></audio>
+            <button id="downloadAudioBtn" class="button" style="margin-top: 10px; background-color: #2ecc71;">Baixar Áudio</button>
+        </div>
+        
+        <h3>Log de Eventos:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        // Elementos da interface
+        const wsUrlInput = document.getElementById('wsUrl');
+        const statusElement = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const messageInput = document.getElementById('message');
+        const sendBtn = document.getElementById('sendBtn');
+        const logElement = document.getElementById('log');
+        const autoPingCheckbox = document.getElementById('autoPing');
+        const pingIntervalInput = document.getElementById('pingInterval');
+        const pingBtn = document.getElementById('pingBtn');
+        const audioFileInput = document.getElementById('audioFile');
+        const sendAudioBtn = document.getElementById('sendAudioBtn');
+        const sendAsBlobCheckbox = document.getElementById('sendAsBlob');
+        const responseInfoDiv = document.getElementById('responseInfo');
+        const responseDataDiv = document.getElementById('responseData');
+        const audioContainer = document.getElementById('audioContainer');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const downloadAudioBtn = document.getElementById('downloadAudioBtn');
+        const latencyElement = document.getElementById('latency');
+        const connectionTimeElement = document.getElementById('connectionTime');
+        const bytesReceivedElement = document.getElementById('bytesReceived');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const addHeaderBtn = document.getElementById('addHeaderBtn');
+        const headersListDiv = document.getElementById('headersList');
+        
+        // Variáveis globais
+        let websocket = null;
+        let pingInterval = null;
+        let connectionStartTime = null;
+        let lastPingTime = null;
+        let totalBytesReceived = 0;
+        let audioBlob = null;
+        let headers = [];
+        
+        // Inicializar cabeçalhos
+        function initHeaders() {
+            addHeader('', '');
+        }
+        
+        // Adicionar um cabeçalho à lista
+        function addHeader(key, value) {
+            const index = headers.length;
+            headers.push({ key, value });
+            
+            const headerRow = document.createElement('div');
+            headerRow.style.display = 'contents';
+            headerRow.dataset.index = index;
+            
+            const keyInput = document.createElement('input');
+            keyInput.type = 'text';
+            keyInput.placeholder = 'Nome do cabeçalho';
+            keyInput.value = key;
+            keyInput.addEventListener('input', (e) => {
+                headers[index].key = e.target.value;
+            });
+            
+            const valueInput = document.createElement('input');
+            valueInput.type = 'text';
+            valueInput.placeholder = 'Valor do cabeçalho';
+            valueInput.value = value;
+            valueInput.addEventListener('input', (e) => {
+                headers[index].value = e.target.value;
+            });
+            
+            headerRow.appendChild(keyInput);
+            headerRow.appendChild(valueInput);
+            headersListDiv.appendChild(headerRow);
+        }
+        
+        // Adicionar evento para a navegação por tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remover classe active de todas as tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Adicionar classe active apenas na tab clicada
+                tab.classList.add('active');
+                const tabId = tab.dataset.tab;
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+        
+        // Função para adicionar mensagem ao log
+        function log(message, type = 'normal') {
+            const entry = document.createElement('div');
+            entry.classList.add('log-entry');
+            if (type !== 'normal') {
+                entry.classList.add(`log-${type}`);
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<strong>${timestamp}</strong>: ${message}`;
+            
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Conectar ao WebSocket
+        function connect() {
+            const wsUrl = wsUrlInput.value.trim();
+            if (!wsUrl) {
+                log('URL do WebSocket não pode estar vazia', 'error');
+                return;
+            }
+            
+            try {
+                // Atualizar status da interface
+                statusElement.className = 'status connecting';
+                statusElement.innerHTML = '<span class="indicator yellow"></span> Conectando...';
+                connectBtn.disabled = true;
+                
+                log(`Iniciando conexão com ${wsUrl}...`, 'info');
+                connectionStartTime = Date.now();
+                
+                // Criar WebSocket
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = () => {
+                    // Atualizar status da interface
+                    statusElement.className = 'status connected';
+                    statusElement.innerHTML = '<span class="indicator green"></span> Conectado';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    sendBtn.disabled = false;
+                    pingBtn.disabled = false;
+                    sendAudioBtn.disabled = false;
+                    
+                    const connectionTime = ((Date.now() - connectionStartTime) / 1000).toFixed(2);
+                    connectionTimeElement.textContent = `${connectionTime}s`;
+                    
+                    log(`Conexão estabelecida em ${connectionTime} segundos`, 'success');
+                    
+                    // Iniciar ping automático se ativado
+                    if (autoPingCheckbox.checked) {
+                        startPingInterval();
+                    }
+                };
+                
+                websocket.onmessage = (event) => {
+                    console.log("Mensagem recebida:", event.data);
+                    
+                    // Atualizar métricas
+                    if (event.data instanceof Blob) {
+                        totalBytesReceived += event.data.size;
+                        log(`Recebido chunk de áudio: ${event.data.size} bytes`, 'info');
+                        handleAudioResponse(event.data);
+                    } else {
+                        totalBytesReceived += event.data.length;
+                        log(`Recebida mensagem de texto: ${event.data.substring(0, 150)}${event.data.length > 150 ? '...' : ''}`, 'info');
+                        handleTextResponse(event.data);
+                    }
+                    
+                    bytesReceivedElement.textContent = formatBytes(totalBytesReceived);
+                    
+                    // Calcular latência se foi enviado um ping
+                    if (lastPingTime) {
+                        const latency = Date.now() - lastPingTime;
+                        latencyElement.textContent = `${latency}ms`;
+                        lastPingTime = null;
+                    }
+                };
+                
+                websocket.onclose = (event) => {
+                    // Atualizar status da interface
+                    statusElement.className = 'status disconnected';
+                    statusElement.innerHTML = '<span class="indicator red"></span> Desconectado';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    sendBtn.disabled = true;
+                    pingBtn.disabled = true;
+                    sendAudioBtn.disabled = true;
+                    
+                    // Limpar intervalo de ping
+                    if (pingInterval) {
+                        clearInterval(pingInterval);
+                        pingInterval = null;
+                    }
+                    
+                    log(`Conexão fechada: Código ${event.code} - ${event.reason || 'Sem razão especificada'}`, 'info');
+                };
+                
+                websocket.onerror = (error) => {
+                    log(`Erro na conexão: ${error}`, 'error');
+                    connectBtn.disabled = false;
+                };
+                
+            } catch (error) {
+                log(`Erro ao criar conexão: ${error.message}`, 'error');
+                statusElement.className = 'status disconnected';
+                statusElement.innerHTML = '<span class="indicator red"></span> Erro';
+                connectBtn.disabled = false;
+            }
+        }
+        
+        // Desconectar do WebSocket
+        function disconnect() {
+            if (websocket) {
+                // Limpar intervalo de ping
+                if (pingInterval) {
+                    clearInterval(pingInterval);
+                    pingInterval = null;
+                }
+                
+                websocket.close(1000, "Desconexão solicitada pelo usuário");
+                log('Desconexão iniciada pelo usuário', 'info');
+            }
+        }
+        
+        // Enviar mensagem
+        function sendMessage() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                log('Não há conexão WebSocket aberta', 'error');
+                return;
+            }
+            
+            const message = messageInput.value.trim();
+            if (!message) {
+                log('Mensagem não pode estar vazia', 'error');
+                return;
+            }
+            
+            try {
+                // Verificar se é uma string JSON válida
+                try {
+                    const jsonObj = JSON.parse(message);
+                    websocket.send(message);
+                    log(`Mensagem JSON enviada: ${JSON.stringify(jsonObj).substring(0, 100)}...`, 'success');
+                } catch (e) {
+                    // Não é JSON válido, enviar como texto
+                    websocket.send(message);
+                    log(`Mensagem de texto enviada: ${message}`, 'success');
+                }
+            } catch (error) {
+                log(`Erro ao enviar mensagem: ${error.message}`, 'error');
+            }
+        }
+        
+        // Enviar ping
+        function sendPing() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                log('Não há conexão WebSocket aberta', 'error');
+                return;
+            }
+            
+            try {
+                lastPingTime = Date.now();
+                websocket.send(JSON.stringify({ type: 'ping', timestamp: lastPingTime }));
+                log('Ping enviado', 'info');
+            } catch (error) {
+                log(`Erro ao enviar ping: ${error.message}`, 'error');
+            }
+        }
+        
+        // Iniciar intervalo de ping
+        function startPingInterval() {
+            if (pingInterval) {
+                clearInterval(pingInterval);
+            }
+            
+            const interval = parseInt(pingIntervalInput.value) * 1000 || 30000;
+            pingInterval = setInterval(sendPing, interval);
+            log(`Ping automático ativado (intervalo: ${interval/1000}s)`, 'info');
+        }
+        
+        // Enviar arquivo de áudio
+        function sendAudioFile() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                log('Não há conexão WebSocket aberta', 'error');
+                return;
+            }
+            
+            const file = audioFileInput.files[0];
+            if (!file) {
+                log('Nenhum arquivo de áudio selecionado', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    if (sendAsBlobCheckbox.checked) {
+                        // Enviar como Blob
+                        websocket.send(new Blob([e.target.result]));
+                        log(`Arquivo de áudio enviado como Blob: ${file.name} (${formatBytes(file.size)})`, 'success');
+                    } else {
+                        // Enviar como ArrayBuffer
+                        websocket.send(e.target.result);
+                        log(`Arquivo de áudio enviado como ArrayBuffer: ${file.name} (${formatBytes(file.size)})`, 'success');
+                    }
+                } catch (error) {
+                    log(`Erro ao enviar arquivo de áudio: ${error.message}`, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                log('Erro ao ler o arquivo de áudio', 'error');
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Tratar resposta de texto
+        function handleTextResponse(text) {
+            try {
+                // Tentar parsear como JSON
+                const jsonData = JSON.parse(text);
+                responseInfoDiv.style.display = 'block';
+                responseDataDiv.innerHTML = '<pre>' + JSON.stringify(jsonData, null, 2) + '</pre>';
+                
+                // Verificar se há transcrição
+                if (jsonData.recognizing || jsonData.recognized) {
+                    const transcription = jsonData.recognizing || jsonData.recognized;
+                    log(`Transcrição: "${transcription}"`, 'success');
+                }
+                
+                // Verificar se há resposta do assistente
+                if (jsonData.assistant_message && jsonData.assistant_message.content) {
+                    log(`Resposta do assistente: "${jsonData.assistant_message.content}"`, 'success');
+                }
+            } catch (e) {
+                // Não é JSON, mostrar como texto
+                responseInfoDiv.style.display = 'block';
+                responseDataDiv.textContent = text;
+            }
+        }
+        
+        // Tratar resposta de áudio
+        function handleAudioResponse(blob) {
+            // Armazenar o blob para download
+            audioBlob = blob;
+            
+            // Criar URL para o blob
+            const audioUrl = URL.createObjectURL(blob);
+            
+            // Atualizar o player de áudio
+            audioContainer.style.display = 'block';
+            audioPlayer.src = audioUrl;
+            
+            // Tentar reproduzir automaticamente
+            audioPlayer.play()
+                .catch(e => log(`Nota: Reprodução automática bloqueada pelo navegador. ${e.message}`, 'info'));
+        }
+        
+        // Baixar áudio
+        function downloadAudio() {
+            if (!audioBlob) {
+                log('Nenhum áudio disponível para download', 'error');
+                return;
+            }
+            
+            const url = URL.createObjectURL(audioBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `resposta_audio_${new Date().toISOString().replace(/[:.]/g, '-')}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+        }
+        
+        // Formatar bytes para exibição
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        // Copiar URL para a área de transferência
+        function copyUrlToClipboard() {
+            const url = wsUrlInput.value.trim();
+            navigator.clipboard.writeText(url)
+                .then(() => {
+                    log('URL copiada para a área de transferência', 'success');
+                    copyUrlBtn.textContent = 'Copiado!';
+                    setTimeout(() => {
+                        copyUrlBtn.textContent = 'Copiar';
+                    }, 2000);
+                })
+                .catch(err => {
+                    log(`Erro ao copiar URL: ${err}`, 'error');
+                });
+        }
+        
+        // Limpar o log
+        function clearLog() {
+            logElement.innerHTML = '';
+            log('Log limpo', 'info');
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        sendBtn.addEventListener('click', sendMessage);
+        pingBtn.addEventListener('click', sendPing);
+        clearLogBtn.addEventListener('click', clearLog);
+        sendAudioBtn.addEventListener('click', sendAudioFile);
+        downloadAudioBtn.addEventListener('click', downloadAudio);
+        copyUrlBtn.addEventListener('click', copyUrlToClipboard);
+        addHeaderBtn.addEventListener('click', () => addHeader('', ''));
+        
+        autoPingCheckbox.addEventListener('change', () => {
+            if (autoPingCheckbox.checked && websocket && websocket.readyState === WebSocket.OPEN) {
+                startPingInterval();
+            } else if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+                log('Ping automático desativado', 'info');
+            }
+        });
+        
+        // Inicializar a interface
+        window.addEventListener('load', () => {
+            log('Página carregada. Pronto para testar o WebSocket.', 'info');
+            initHeaders();
+        });
+    </script>
+</body>
+</html>

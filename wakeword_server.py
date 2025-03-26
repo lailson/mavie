@@ -18,7 +18,7 @@ RATE = 16000
 CHUNK = 1024
 
 class WakeWordDetector:
-    def __init__(self, model_path="ma_veee.onnx", threshold=0.2, port=5678):
+    def __init__(self, model_path="ma_veee.onnx", threshold=0.1, port=5678):
         self.audio = pyaudio.PyAudio()
         self.model_path = model_path
         self.threshold = threshold

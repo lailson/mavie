@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste WebSocket</title>
+</head>
+<body>
+    <h1>Verificação de Conexão WebSocket</h1>
+    <div id="status">Conectando...</div>
+    <script>
+        const ws = new WebSocket('wss://datalake-chat-dev.brazilsouth.cloudapp.azure.com/api-assistant/ws/conversation?doctor_id=205&language=pt-BR&output_format=mp3_44100');
+        
+        ws.onopen = () => {
+            document.getElementById('status').innerHTML = 
+                '<span style="color:green">✅ CONECTADO! Servidor WebSocket está ativo.</span>';
+        };
+        
+        ws.onerror = (error) => {
+            console.error("Erro detalhado:", error);
+            document.getElementById('status').innerHTML = 
+                '<span style="color:red">❌ FALHA NA CONEXÃO! Servidor WebSocket inativo.</span>';
+        };
+    </script>
+</body>
+</html>

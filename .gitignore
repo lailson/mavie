@@ -54,3 +54,6 @@ tmp/
 
 # Arquivos gerados pelo Jupyter Notebook
 .ipynb_checkpoints
+
+# Permissao aws
+*.pem
