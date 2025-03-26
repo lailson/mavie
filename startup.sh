@@ -17,6 +17,17 @@ if [ -z "$DISPLAY" ]; then
     export DISPLAY=:0.0
 fi
 
+# Configurar perfil do Firefox para permitir microfone automaticamente
+FIREFOX_PROFILE="$HOME/.mozilla/firefox/mavie_profile"
+echo "Configurando perfil Firefox para autorização automática" >> $PROJECT_DIR/startup.log
+mkdir -p "$FIREFOX_PROFILE"
+cat > "$FIREFOX_PROFILE/user.js" << EOF
+user_pref("media.navigator.permission.disabled", true);
+user_pref("permissions.default.microphone", 1);
+user_pref("dom.webnotifications.enabled", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+EOF
+
 # Atualizar o código via git pull
 echo "Atualizando repositório..." >> $PROJECT_DIR/startup.log
 git pull >> $PROJECT_DIR/startup.log 2>&1 || echo "AVISO: Falha ao atualizar via git" >> $PROJECT_DIR/startup.log
@@ -55,22 +66,29 @@ if ! ps -p $WAKEWORD_PID > /dev/null; then
     exit 1
 fi
 
-# Abrir o navegador com a página HTML
-echo "Abrindo página HTML no navegador..." >> $PROJECT_DIR/startup.log
-if command -v chromium-browser &> /dev/null; then
-    chromium-browser --start-fullscreen --no-sandbox $PROJECT_DIR/websocket_tester_ww.html &
-elif command -v chromium &> /dev/null; then
-    chromium --start-fullscreen --no-sandbox $PROJECT_DIR/websocket_tester_ww.html &
+# Abrir o navegador com a página HTML - AGORA PRIORIZANDO FIREFOX
+echo "Abrindo página HTML no Firefox..." >> $PROJECT_DIR/startup.log
+if command -v firefox &> /dev/null; then
+    firefox --kiosk --no-remote --profile "$FIREFOX_PROFILE" $PROJECT_DIR/websocket_tester_ww.html &
+    BROWSER_PID=$!
+    echo "Firefox iniciado (PID: $BROWSER_PID)" >> $PROJECT_DIR/startup.log
 else
-    echo "AVISO: Chromium não encontrado, tentando outros navegadores" >> $PROJECT_DIR/startup.log
-    for browser in firefox epiphany-browser midori; do
-        if command -v $browser &> /dev/null; then
-            $browser $PROJECT_DIR/websocket_tester_ww.html &
-            break
-        fi
-    done
+    echo "AVISO: Firefox não encontrado, tentando outros navegadores" >> $PROJECT_DIR/startup.log
+    if command -v chromium-browser &> /dev/null; then
+        chromium-browser --disable-gpu --disable-software-rasterizer --no-sandbox --start-fullscreen $PROJECT_DIR/websocket_tester_ww.html &
+        BROWSER_PID=$!
+    elif command -v chromium &> /dev/null; then
+        chromium --disable-gpu --disable-software-rasterizer --no-sandbox --start-fullscreen $PROJECT_DIR/websocket_tester_ww.html &
+        BROWSER_PID=$!
+    elif command -v epiphany-browser &> /dev/null; then
+        epiphany-browser $PROJECT_DIR/websocket_tester_ww.html &
+        BROWSER_PID=$!
+    else
+        echo "ERRO: Nenhum navegador compatível encontrado" >> $PROJECT_DIR/startup.log
+        exit 1
+    fi
 fi
-BROWSER_PID=$!
+
 echo "$(date) - Navegador iniciado (PID: $BROWSER_PID)" >> $PROJECT_DIR/startup.log
 
 # Manter o script rodando
