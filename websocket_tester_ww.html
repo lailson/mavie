@@ -370,6 +370,9 @@
         let microphoneStream = null; // Armazenar a stream do microfone
         let microphonePermissionGranted = false; // Indicador de permissão concedida
         
+        // Adicionar variável para rastrear se estamos aguardando resposta
+        let isWaitingForResponse = false;
+        
         // Arrays para acumular chunks de áudio da resposta
         let responseAudioChunks = [];
         let isCollectingAudioChunks = false;
@@ -642,6 +645,9 @@
                     websocket = null;
                 }
                 
+                // Reiniciar o estado de espera de resposta
+                isWaitingForResponse = false;
+                
                 // Limpar o buffer de áudio
                 audioBuffer = [];
                 isWebSocketConnected = false;
@@ -733,6 +739,9 @@
                         statusElement.classList.add('disconnected');
                         stopBtn.disabled = true;
                         startBtn.disabled = false;
+                        
+                        // Redefinir o estado de espera quando a conexão for fechada
+                        isWaitingForResponse = false;
                         
                         log(`Conexão fechada: ${event.code} ${event.reason}`, 'info');
                         websocket = null;
@@ -878,6 +887,9 @@
                 stopBtn.disabled = true;
                 isBufferingAudio = false;
                 
+                // Redefine o estado de resposta
+                isWaitingForResponse = false;
+                
                 log('Gravação interrompida', 'info');
                 
                 // Limpar buffer de áudio, não é mais necessário
@@ -918,6 +930,9 @@
                 // Parar timer de gravação
                 stopRecordingTimer();
                 
+                // Marcar que estamos esperando resposta
+                isWaitingForResponse = true;
+                
                 log('Gravação interrompida, mas conexão mantida para receber respostas', 'info');
                 log('Aguardando resposta do servidor...', 'info');
             }
@@ -952,6 +967,9 @@
             else if (data.conversation_id) {
                 log(`Resposta final recebida: "${data.assistant_message.content}"`, 'success');
                 
+                // Marcar que não estamos mais esperando resposta
+                isWaitingForResponse = false;
+                
                 // Exibir resposta textual de forma mais proeminente
                 const responseDisplay = document.createElement('div');
                 responseDisplay.style.padding = '15px';
@@ -963,6 +981,9 @@
                 
                 // Inserir antes do log
                 document.querySelector('.container').insertBefore(responseDisplay, document.querySelector('h3').nextSibling);
+                
+                // Registrar que estamos prontos para uma nova wake word
+                log('✓ Pronto para uma nova pergunta. Aguardando wake word...', 'success');
             }
             else {
                 log(`Resposta JSON: ${JSON.stringify(data)}`, 'info');
@@ -984,6 +1005,9 @@
             
             // Incrementar o contador de respostas de áudio
             audioResponseCounter++;
+            
+            // Marcar que não estamos mais esperando resposta
+            isWaitingForResponse = false;
             
             // Combinar todos os chunks em um único Blob
             const combinedBlob = new Blob(responseAudioChunks, { type: 'audio/mp3' });
@@ -1095,6 +1119,9 @@
             }
             
             log(`✅ Áudio #${audioResponseCounter} carregado e reprodução automática iniciada`, 'success');
+            
+            // Registrar que estamos prontos para uma nova wake word
+            log('✓ Pronto para uma nova pergunta. Aguardando wake word...', 'success');
         }
 
         // Função para iniciar a detecção de silêncio
@@ -1339,13 +1366,27 @@
                                 log(`Nota: Erro ao tocar som de confirmação: ${e.message}`, 'info');
                             }
                             
-                            // Verificar se já está gravando ou se estamos conectados ao servidor principal
-                            if (!isRecording && (!websocket || websocket.readyState !== WebSocket.OPEN)) {
+                            // MODIFICADO: verificação melhorada para iniciar nova gravação
+                            // Agora verifica se NÃO está gravando E se NÃO está aguardando resposta
+                            if (!isRecording && !isWaitingForResponse) {
                                 log('Iniciando gravação automática após detecção da wake word', 'info');
+                                
+                                // Verificar se o WebSocket ainda está aberto de uma conversa anterior
+                                if (websocket && websocket.readyState === WebSocket.OPEN) {
+                                    log('Fechando WebSocket anterior antes de iniciar nova conversação', 'info');
+                                    websocket.close(1000, "Nova conversa via wake word");
+                                    websocket = null;
+                                }
+                                
                                 // Simular clique no botão de iniciar gravação
                                 connectAndStartRecording();
                             } else {
-                                log('Ignorando wake word - já está gravando ou processando', 'info');
+                                // Explicar melhor porque ignorou
+                                if (isRecording) {
+                                    log('Ignorando wake word - já está gravando ativamente', 'info');
+                                } else if (isWaitingForResponse) {
+                                    log('Ignorando wake word - ainda aguardando resposta da pergunta anterior', 'info');
+                                }
                             }
                         }
                     } catch (e) {
